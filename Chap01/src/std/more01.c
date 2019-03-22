@@ -57,7 +57,7 @@ int see_more() {
   int c;
   printf("\033[7m more? \033[m");
   while ((c = getchar()) != EOF) {
-    printf("\033[1m;2 Log: c %d\033[m\n", c);
+    //printf("\033[1m;2 Log: c %d\033[m\n", c);
     if (c == 'q') {
       return 0;
     } else if (c == ' ') {
