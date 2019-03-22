@@ -44,11 +44,13 @@ main(int argc, char *argv[], char *env[]) {
 
 /*
  * set the terminal back to normal mode
+ * show the cursor
  */
 void
 exit_more() {
   tcsetattr(STDIN_FILENO, TCSANOW, &old);
   fclose(cmd);
+  fputs("\033[?25h", stdout);
 }
 
 /*
@@ -56,6 +58,7 @@ exit_more() {
  * get number of lines of the terminal
  * set the terminal to not echo keypress and send it immediately
  * open /dev/tty as the input of commands
+ * hide the cursor
  */
 void
 init_more() {
@@ -78,12 +81,17 @@ init_more() {
   tcgetattr(STDIN_FILENO, &old);
   tm = old;
   tm.c_lflag &= ~(ICANON | ECHO);
-  tcsetattr(STDIN_FILENO, TCSANOW, &tm);
+  tm.c_cc[VMIN] = 1;
+  tm.c_cc[VTIME] = 0;
+  tcsetattr(STDIN_FILENO, TCSADRAIN, &tm);
 
   // open /dev/tty
   if ((cmd = fopen(CMD_FILE, "r")) == NULL) {
     exit(1);
   }
+
+  // hide the cursor
+  fputs("\033[?25l", stdout);
 }
 
 void
@@ -108,14 +116,24 @@ do_more(FILE *fp) {
 int
 see_more() {
   char c;
+  // invert color
   fputs("\033[7m more? \033[m", stdout);
+  // put cursor back to the beginning of the line
+  printf("\033[%dD", num_of_lines);
+
   while ((c = fgetc(cmd)) != EOF) {
     switch (c) {
       case ' ':
+        // erase the line
+        fputs("\033[0K", stdout);
         return num_of_lines;
       case '\n':
+        // erase the line
+        fputs("\033[0K", stdout);
         return 1;
       case 'q':
+        // erase the line
+        fputs("\033[0K", stdout);
         return 0;
     }
   }
