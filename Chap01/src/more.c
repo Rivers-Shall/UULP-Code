@@ -23,6 +23,7 @@ main(int argc, char *argv[], char *env[]) {
       FILE *fp;
       if ((fp = fopen(*++argv, "r")) != NULL) {
         do_more(fp);
+        fclose(fp);
       } else {
         exit(1);
       }
@@ -34,7 +35,6 @@ main(int argc, char *argv[], char *env[]) {
 void
 init_more() {
   char * lines_str = getenv("LINES");
-  printf("%s\n", lines_str);
   if (lines_str != NULL) {
     num_of_lines = atoi(lines_str) - 1;
   } else {
@@ -64,15 +64,18 @@ do_more(FILE *fp) {
 
 int
 see_more() {
+  char c;
   fputs("\033[7m more? \033[m", stdout);
-  char c = getchar();
-  switch (c) {
-    case ' ':
-      return num_of_lines;
-    case '\n':
-      return 1;
-    default:
-      return 0;
+  while ((c = getchar()) != EOF) {
+    switch (c) {
+      case ' ':
+        return num_of_lines;
+      case '\n':
+        return 1;
+      case 'q':
+        return 0;
+    }
   }
+  return 0;
 }
 
