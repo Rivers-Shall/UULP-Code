@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 int num_of_lines = 0;
 const int LEN_OF_LINE = 512;
@@ -32,15 +34,21 @@ main(int argc, char *argv[], char *env[]) {
   return 0;
 }
 
+/*
+ * get number of lines of the terminal
+ */
 void
 init_more() {
   char * lines_str = getenv("LINES");
+  struct winsize ws;
   if (lines_str != NULL) {
     num_of_lines = atoi(lines_str) - 1;
+  } else if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0){
+    num_of_lines = ws.ws_row;
   } else {
     num_of_lines = 24;
   }
-  printf("num_of_lines: %d\n", num_of_lines);
+  //printf("num_of_lines: %d\n", num_of_lines);
 }
 
 void
