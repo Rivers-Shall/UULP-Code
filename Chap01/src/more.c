@@ -7,6 +7,7 @@
 int num_of_lines = 0;
 struct termios old;
 FILE *cmd;
+int CMD_FILENO;
 
 const int LEN_OF_LINE = 512;
 const char *CMD_FILE = "/dev/tty";
@@ -44,11 +45,12 @@ main(int argc, char *argv[], char *env[]) {
 
 /*
  * set the terminal back to normal mode
+ * close cmd file
  * show the cursor
  */
 void
 exit_more() {
-  tcsetattr(STDIN_FILENO, TCSANOW, &old);
+  tcsetattr(CMD_FILENO, TCSANOW, &old);
   fclose(cmd);
   fputs("\033[?25h", stdout);
 }
@@ -76,18 +78,21 @@ init_more() {
     num_of_lines = 24;
   }
 
+  // open /dev/tty
+  if ((cmd = fopen(CMD_FILE, "r")) == NULL) {
+    exit(1);
+  }
+  CMD_FILENO = fileno(cmd);
+
   // set the terminal mode
   struct termios tm;
-  tcgetattr(STDIN_FILENO, &old);
+  tcgetattr(CMD_FILENO, &old);
   tm = old;
   tm.c_lflag &= ~(ICANON | ECHO);
   tm.c_cc[VMIN] = 1;
   tm.c_cc[VTIME] = 0;
-  tcsetattr(STDIN_FILENO, TCSADRAIN, &tm);
-
-  // open /dev/tty
-  if ((cmd = fopen(CMD_FILE, "r")) == NULL) {
-    exit(1);
+  if (tcsetattr(CMD_FILENO, TCSADRAIN, &tm) == -1) {
+    perror("tcsetattr");
   }
 
   // hide the cursor
