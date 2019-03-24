@@ -12,6 +12,8 @@ int CMD_FILENO;
 
 const int LEN_OF_LINE = 512;
 const char * const CMD_FILE = "/dev/tty";
+const char SHOW_NEXT_MSG = 1;
+const char NOT_SHOW_NEXT_MSG = 0;
 
 void
 init_more();
@@ -20,21 +22,21 @@ void
 exit_more();
 
 void
-do_more(FILE *);
+do_more(FILE *, const char * const file_nm, const char show_next_msg);
 
 int
-see_more(long cur_sz, long file_sz);
+see_more(long cur_sz, long file_sz, const char * const file_nm);
 
 int
 main(int argc, char *argv[], char *env[]) {
   init_more();
   if (argc == 1) {
-    do_more(stdin);
+    do_more(stdin, NULL, NOT_SHOW_NEXT_MSG);
   } else {
-    while (--argc) {
+    for (int i = 1; i < argc; ++i) {
       FILE *fp;
-      if ((fp = fopen(*++argv, "r")) != NULL) {
-        do_more(fp);
+      if ((fp = fopen(argv[i], "r")) != NULL) {
+        do_more(fp, (argc > 2) ? argv[i] : NULL, i != 1);
         fclose(fp);
       } else {
         exit(1);
@@ -106,7 +108,7 @@ init_more() {
  * then call see_more() to get command
  */
 void
-do_more(FILE *fp) {
+do_more(FILE *fp, const char *const file_nm, char show_next_msg) {
   // get file size
   long file_sz;
   if (fp != stdin) {
@@ -125,13 +127,24 @@ do_more(FILE *fp) {
   int lines_left = num_of_lines;
   char line[LEN_OF_LINE];
   long cur_sz = 0;
+  if (show_next_msg) {
+    lines_left = see_more(0, -1, file_nm);
+  }
+  if (file_nm != NULL) {
+    printf("----------------\n"
+           "%s\n"
+           "----------------\n", file_nm);
+    if (lines_left == num_of_lines) {
+      lines_left -= 3;
+    }
+  }
   
   while ((fgets(line, LEN_OF_LINE, fp)) != NULL) {
     if (file_sz > 0) { // not stdin, percentage needed
       cur_sz += strlen(line);
     }
     if (lines_left == 0) {
-      lines_left += see_more(cur_sz, file_sz);
+      lines_left += see_more(cur_sz, file_sz, NULL);
       if (lines_left == 0) {
         break;
       }
@@ -144,17 +157,27 @@ do_more(FILE *fp) {
 }
 
 int
-see_more(long cur_sz, long file_sz) {
+see_more(long cur_sz, long file_sz, const char *const file_nm) {
   char c;
   char per[10]; // percentage string
+  char next_msg[50];
+  char *msg; // final msg, one of per, next_msg or ""
 
+  // get next msg
+  if (file_nm != NULL) {
+    sprintf(next_msg, "(Next file: %s)", file_nm);
+    msg = next_msg;
+  } else {
+    msg = "";
+  }
   // get percentage string
   if (file_sz > 0) {
     sprintf(per, "(%d%%)", (int) (cur_sz / (double) file_sz * 100));
+    msg = per;
   }
 
   // invert color and print more and percentage
-  printf("\033[7m More?%s \033[m", (file_sz > 0) ? per : "");
+  printf("\033[7m More?%s \033[m", msg);
 
   // put cursor back to the beginning of the line
   printf("\033[%dD", num_of_lines);
