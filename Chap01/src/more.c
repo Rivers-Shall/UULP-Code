@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <termios.h>
+#include <assert.h>
 
 int num_of_lines = 0;
 struct termios old;
@@ -36,6 +37,11 @@ main(int argc, char *argv[], char *env[]) {
     for (int i = 1; i < argc; ++i) {
       FILE *fp;
       if ((fp = fopen(argv[i], "r")) != NULL) {
+        // if there is only one file, pass NULL so that file name will
+        // not be shown
+        // if there are multiple files, pass argv[i] to show file name
+        // and pass i != 1 so that hint msg works for all files except
+        // the first one
         do_more(fp, (argc > 2) ? argv[i] : NULL, i != 1);
         fclose(fp);
       } else {
@@ -106,6 +112,15 @@ init_more() {
  * get file size
  * print num_of_lines lines of file
  * then call see_more() to get command
+ *
+ * @parameter fp: file pointer
+ * @parameter file_nm: If it is NULL, show_next_msg must be 
+ *                     NOT_SHOW_NEXT_MSG.
+ *                     If it is not NULL, file name will be shown on
+ *                     the first page.
+ * @parameter show_next_msg: If it is SHOW_NEXT_MSG, a hint msg will
+ *                           show up. 
+ *                           Otherwise, there will be no hint msg
  */
 void
 do_more(FILE *fp, const char *const file_nm, char show_next_msg) {
@@ -137,6 +152,8 @@ do_more(FILE *fp, const char *const file_nm, char show_next_msg) {
     if (lines_left == num_of_lines) {
       lines_left -= 3;
     }
+  } else {
+    assert(show_next_msg == NOT_SHOW_NEXT_MSG);
   }
   
   while ((fgets(line, LEN_OF_LINE, fp)) != NULL) {
@@ -156,24 +173,38 @@ do_more(FILE *fp, const char *const file_nm, char show_next_msg) {
   }
 }
 
+/*
+ * If file_sz < 0, no percentage msg is printed. Otherwise, there will
+ * be, and the percentage is calculated as (cur_sz / file_sz) * 100
+ * If file_nm == NULL, no next msg is printed. Otherwise, there will
+ * be
+ *
+ * @parameter file_nm: file name, if file_nm != NULL, file_sz must be 
+ *                     negative.
+ *
+ * @return: the number of lines to print
+ */
 int
 see_more(long cur_sz, long file_sz, const char *const file_nm) {
   char c;
   char per[10]; // percentage string
   char next_msg[50];
-  char *msg; // final msg, one of per, next_msg or ""
+  char *msg = NULL; // final msg, one of per, next_msg or ""
 
   // get next msg
   if (file_nm != NULL) {
+    assert(file_sz < 0);
     sprintf(next_msg, "(Next file: %s)", file_nm);
     msg = next_msg;
-  } else {
-    msg = "";
   }
   // get percentage string
   if (file_sz > 0) {
     sprintf(per, "(%d%%)", (int) (cur_sz / (double) file_sz * 100));
     msg = per;
+  }
+  // no next msg or percentage string
+  if (msg == NULL) {
+    msg = "";
   }
 
   // invert color and print more and percentage
