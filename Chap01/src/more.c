@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <termios.h>
@@ -10,7 +11,7 @@ FILE *cmd;
 int CMD_FILENO;
 
 const int LEN_OF_LINE = 512;
-const char *CMD_FILE = "/dev/tty";
+const char * const CMD_FILE = "/dev/tty";
 
 void
 init_more();
@@ -22,7 +23,7 @@ void
 do_more(FILE *);
 
 int
-see_more();
+see_more(long cur_sz, long file_sz);
 
 int
 main(int argc, char *argv[], char *env[]) {
@@ -99,14 +100,38 @@ init_more() {
   fputs("\033[?25l", stdout);
 }
 
+/*
+ * get file size
+ * print num_of_lines lines of file
+ * then call see_more() to get command
+ */
 void
 do_more(FILE *fp) {
+  // get file size
+  long file_sz;
+  if (fp != stdin) {
+    if  (fseek(fp, 0, SEEK_END) == -1) {
+      exit(1);
+    }
+    file_sz = ftell(fp);
+    if  (fseek(fp, 0, SEEK_SET) == -1) {
+      exit(1);
+    }
+  } else {  // stdin, no persentage 
+    file_sz = -1;
+  }
+
+  // print and get command 
   int lines_left = num_of_lines;
   char line[LEN_OF_LINE];
+  long cur_sz = 0;
   
   while ((fgets(line, LEN_OF_LINE, fp)) != NULL) {
+    if (file_sz > 0) { // not stdin, percentage needed
+      cur_sz += strlen(line);
+    }
     if (lines_left == 0) {
-      lines_left += see_more();
+      lines_left += see_more(cur_sz, file_sz);
       if (lines_left == 0) {
         break;
       }
@@ -119,10 +144,18 @@ do_more(FILE *fp) {
 }
 
 int
-see_more() {
+see_more(long cur_sz, long file_sz) {
   char c;
-  // invert color
-  fputs("\033[7m more? \033[m", stdout);
+  char per[10]; // percentage string
+
+  // get percentage string
+  if (file_sz > 0) {
+    sprintf(per, "(%d%%)", (int) (cur_sz / (double) file_sz * 100));
+  }
+
+  // invert color and print more and percentage
+  printf("\033[7m More?%s \033[m", (file_sz > 0) ? per : "");
+
   // put cursor back to the beginning of the line
   printf("\033[%dD", num_of_lines);
 
