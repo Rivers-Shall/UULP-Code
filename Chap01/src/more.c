@@ -74,7 +74,7 @@ init_more() {
   if (lines_str != NULL) {
     num_of_lines = atoi(lines_str) - 1;
   } else if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0){
-    num_of_lines = ws.ws_row;
+    num_of_lines = ws.ws_row - 1;
   } else {
     num_of_lines = 24;
   }
